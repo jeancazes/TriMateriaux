@@ -1,0 +1,34 @@
+name: Mise en ligne FTP
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-ftp
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # On n'envoie que les fichiers utiles (pas de .git, .github, etc.)
+      - name: Préparer le dossier à publier
+        run: |
+          mkdir -p dist
+          cp prof.html eleves.html dist/
+          cp -r images dist/images
+
+      - name: Envoi par FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./dist/
+          server-dir: /public_html/DivMateriaux/
+          # Envoie seulement les fichiers modifiés ; ne supprime rien sur le serveur.
