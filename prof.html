@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Atelier des matériaux (prof)</title>
+<title>Atelier des matériaux</title>
 <style>
   /* Remise à zéro minimale pour une page autonome */
   html { -webkit-text-size-adjust: 100%; }
@@ -140,6 +140,10 @@
     h1 { font-size: 1.25rem; }
   }
   @media (prefers-reduced-motion: reduce) { .tile, .board, .board.anim .tile, .frame, .cat { transition: none; animation: none; } }
+  .dock { position: absolute; z-index: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: none; box-sizing: border-box; padding: 4px; border: 1.5px dashed var(--muted); border-radius: 10px; color: var(--muted); font: 500 0.68rem/1.3 var(--font-mono); text-align: center; }
+  .dock.on .ph { display: none; }
+  .dock .tip { position: static; z-index: auto; max-width: none; width: 100%; box-sizing: border-box; padding: 4px 6px; box-shadow: none; font-size: 0.72rem; line-height: 1.25; gap: 8px; text-align: left; }
+  .dock .tipbox { width: 46px; height: 46px; }
   .tip[hidden] { display: none; }
   .tip { display: flex; align-items: center; gap: 10px; max-width: min(320px, calc(100vw - 16px)); }
   .tipbox { position: relative; flex: none; width: 64px; height: 64px; border-radius: 6px; overflow: hidden; background: #cfcac0; }
@@ -914,7 +918,7 @@ if (typeof module !== "undefined") module.exports = MatTex;
     tipPic.onerror = function () { picOk[s] = false; };
     tipPic.src = MAT_IMGS[s] || ("images/" + s + ".png");
   }
-  var tipTimer = null;
+  var tipTimer = null, dockEl = null;
   function showTip(el) {
     var txt = CLUES[el.textContent];
     if (!txt) return;
@@ -922,6 +926,12 @@ if (typeof module !== "undefined") module.exports = MatTex;
     tipTxt.textContent = txt;
     showPic(el.textContent);
     tip.hidden = false;
+    if (isPhone()) {                     // smartphone : bandeau réservé en haut du plateau
+      if (tip.parentNode !== dockEl) dockEl.appendChild(tip);
+      dockEl.classList.add("on");
+      return;
+    }
+    if (tip.parentNode !== document.body) document.body.appendChild(tip);
     var r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
     var left = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
     var top = r.top - th - 8;
@@ -929,10 +939,44 @@ if (typeof module !== "undefined") module.exports = MatTex;
     tip.style.left = left + "px";
     tip.style.top = top + "px";
   }
-  function hideTip() { clearTimeout(tipTimer); tip.hidden = true; }
+  function hideTip() { clearTimeout(tipTimer); tip.hidden = true; if (dockEl) dockEl.classList.remove("on"); }
 
   var board = document.getElementById("board");
-  var EXTRA = 150, CH = 40;
+  var EXTRA = 150, CH = 40, DOCKH = 62;
+  function isPhone() { return board.clientWidth < 640; }
+
+  /* Défilement automatique de la page pendant un glisser : lent puis de plus en plus rapide près du bord haut/bas de l'écran. */
+  var AUTO = { zone: 120, max: 26 };
+  var autoV = 0, autoAcc = 0, autoRaf = 0, autoFn = null;
+  function autoStep() {
+    autoRaf = 0;
+    if (!autoV || !autoFn) return;
+    autoAcc += autoV;
+    var d = autoAcc < 0 ? Math.ceil(autoAcc) : Math.floor(autoAcc);
+    if (d) { autoAcc -= d; window.scrollBy(0, d); autoFn(); }
+    autoRaf = requestAnimationFrame(autoStep);
+  }
+  function autoScroll(clientY, fn) {
+    var h = window.innerHeight, v = 0, t;
+    if (clientY > h - AUTO.zone) { t = Math.min(1, (clientY - (h - AUTO.zone)) / AUTO.zone); v = AUTO.max * t * t; }
+    else if (clientY < AUTO.zone) { t = Math.min(1, (AUTO.zone - clientY) / AUTO.zone); v = -AUTO.max * t * t; }
+    autoV = v; autoFn = fn;
+    if (v && !autoRaf) autoRaf = requestAnimationFrame(autoStep);
+  }
+  function autoStop() { autoV = 0; autoAcc = 0; autoFn = null; if (autoRaf) cancelAnimationFrame(autoRaf); autoRaf = 0; }
+  dockEl = document.createElement("div");
+  dockEl.className = "dock";
+  dockEl.innerHTML = '<span class="ph">Touche une vignette : image + indice</span>';
+  dockEl.style.display = "none";
+  board.appendChild(dockEl);
+  // Smartphone : on réserve un bandeau en haut du plateau pour l'image + l'indice.
+  function setTop() {
+    var ph = isPhone(), bw = board.clientWidth;
+    PT.topExtra = ph ? DOCKH + 10 : 0;
+    dockEl.style.display = ph ? "flex" : "none";
+    if (ph) { dockEl.style.left = PAD + "px"; dockEl.style.top = PAD + "px"; dockEl.style.width = (bw - 2 * PAD) + "px"; dockEl.style.height = DOCKH + "px"; }
+    else if (tip.parentNode === dockEl) { document.body.appendChild(tip); tip.hidden = true; dockEl.classList.remove("on"); }
+  }
 
   /* Mise en page adaptative : les cadres occupent toute la largeur sur ordinateur,
      les vignettes rétrécissent sur smartphone. */
@@ -1042,12 +1086,17 @@ if (typeof module !== "undefined") module.exports = MatTex;
     bindDrag(el);
     el.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse" && !el.classList.contains("drag")) showTip(el); });
     el.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") hideTip(); });
-    el.addEventListener("focus", function () { showTip(el); });
+    el.addEventListener("focus", function () { if (el.matches(":focus-visible")) showTip(el); });
     el.addEventListener("blur", hideTip);
     var tx = 0, ty = 0;
-    el.addEventListener("pointerdown", function (e) { tx = e.clientX; ty = e.clientY; hideTip(); });
+    el.addEventListener("pointerdown", function (e) {
+      tx = e.clientX; ty = e.clientY; hideTip();
+      if (e.pointerType !== "mouse" && isPhone()) showTip(el);
+    });
+    el.addEventListener("pointercancel", function (e) { if (e.pointerType !== "mouse" && isPhone()) hideTip(); });
     el.addEventListener("pointerup", function (e) {
       if (e.pointerType === "mouse") { showTip(el); return; }
+      if (isPhone()) { hideTip(); return; }
       if (Math.abs(e.clientX - tx) < 6 && Math.abs(e.clientY - ty) < 6) {
         showTip(el);
         tipTimer = setTimeout(hideTip, 2500);
@@ -1076,21 +1125,23 @@ if (typeof module !== "undefined") module.exports = MatTex;
   // Grille mélangée de départ.
   function layout() {
     clearOverlay(); setFrames(false); grouped = false; touched = false;
+    setTop();
     var bw = board.clientWidth;
     var P = plan(bw, PT);
     applySize();
     var cols = Math.max(1, Math.floor((P.inner + GAP) / (W + GAP)));
     var rows = Math.ceil(tiles.length / cols);
-    board.style.height = (PAD * 2 + rows * (H + GAP) - GAP + EXTRA) + "px";
+    board.style.height = (PAD * 2 + rows * (H + GAP) - GAP + EXTRA + PT.topExtra) + "px";
     animate();
     tiles.forEach(function (el, i) {
-      place(el, PAD + (i % cols) * (W + GAP), PAD + Math.floor(i / cols) * (H + GAP));
+      place(el, PAD + (i % cols) * (W + GAP), PAD + PT.topExtra + Math.floor(i / cols) * (H + GAP));
     });
   }
 
   // Rangement par catégorie puis par groupe.
   var PT = { thD: 32, thC: 26, spare: 0, topExtra: 0, catH: CH, catGap: 10 };
   function compute() {
+    setTop();
     var P = plan(board.clientWidth, PT);
     applySize();
     var pos = {};
@@ -1142,25 +1193,33 @@ if (typeof module !== "undefined") module.exports = MatTex;
     return [Math.min(Math.max(0, x), Math.max(0, maxX)), Math.min(Math.max(0, y), Math.max(0, maxY))];
   }
   function bindDrag(el) {
-    var sx, sy, ox, oy, id = null;
+    var sx, sy, ox, oy, id = null, bl0 = 0, bt0 = 0, lx = 0, ly = 0;
+    function reposition() {
+      var r = board.getBoundingClientRect();
+      var c = clamp(el, ox + lx - sx + (bl0 - r.left), oy + ly - sy + (bt0 - r.top));
+      if (c[0] !== ox || c[1] !== oy) { dropFrames(); touched = true; }
+      place(el, c[0], c[1]);
+    }
     el.addEventListener("pointerdown", function (e) {
       if (e.button !== undefined && e.button !== 0) return;
       id = e.pointerId;
       el.setPointerCapture(id);
-      sx = e.clientX; sy = e.clientY; ox = el._x; oy = el._y;
+      sx = e.clientX; sy = e.clientY; ox = el._x; oy = el._y; lx = sx; ly = sy;
+      var br = board.getBoundingClientRect(); bl0 = br.left; bt0 = br.top;
       el.classList.add("drag");
       el.style.zIndex = ++z;
       e.preventDefault();
     });
     el.addEventListener("pointermove", function (e) {
       if (id !== e.pointerId) return;
-      var c = clamp(el, ox + e.clientX - sx, oy + e.clientY - sy);
-      if (c[0] !== ox || c[1] !== oy) { dropFrames(); touched = true; }
-      place(el, c[0], c[1]);
+      lx = e.clientX; ly = e.clientY;
+      reposition();
+      autoScroll(ly, reposition);
     });
     function end(e) {
       if (id !== e.pointerId) return;
       id = null;
+      autoStop();
       el.classList.remove("drag");
     }
     el.addEventListener("pointerup", end);
@@ -1200,16 +1259,18 @@ if (typeof module !== "undefined") module.exports = MatTex;
   var onResize = function () {
     var w = board.clientWidth;
     if (w === lastW) return;
-    var oldW = lastW, oldTile = W;
+    var oldW = lastW, oldTile = W, oldTop = PT.topExtra;
     lastW = w;
+    setTop();
     plan(w, PT); applySize();
     // Rangement automatique (grille de départ, Regrouper, Cadres) : on le recalcule pour la nouvelle largeur.
     if (framesOn || (grouped && !touched)) { group(); return; }
     if (!touched) { layout(); return; }
     // Disposition faite à la main : on garde les positions relatives, centrées dans le nouveau tableau.
-    var sx = (w - W) / Math.max(1, oldW - oldTile);
+    var sx = (w - W) / Math.max(1, oldW - oldTile), dy = PT.topExtra - oldTop;
+    if (dy) board.style.height = (board.clientHeight + dy) + "px";
     tiles.forEach(function (el) {
-      var c = clamp(el, el._x * sx, el._y);
+      var c = clamp(el, el._x * sx, el._y + dy);
       place(el, c[0], c[1]);
     });
   };
