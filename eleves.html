@@ -910,7 +910,7 @@ if (typeof module !== "undefined") module.exports = MatTex;
       arr.forEach(function (g, i) { g.shade = "hsl(" + HUES[cat][0] + "," + HUES[cat][1] + "%," + ls[i] + "%)"; });
     });
   })();
-  var catLit = {};   /* catégories déjà colorées (acquis jusqu'à « Recommencer ») */
+  var grpLit = {};   /* groupes déjà colorés (acquis jusqu'à « Recommencer ») */
 
   var SEEDS = { "Métaux": "Cuivre", "Roches": "Granit", "Minéraux, sols et eau": "Sable", "Végétales": "Bois",
     "Animales": "Laine", "Fossiles": "Charbon", "Construction": "Béton", "Céramiques": "Céramique",
@@ -1147,22 +1147,26 @@ if (typeof module !== "undefined") module.exports = MatTex;
     place(el, q.x, q.y, 0);
   }
 
-  /* Couleurs : quand 70 % des vignettes d'une catégorie (hors vignettes de départ) sont dans le bon cadre,
-     TOUTES les vignettes de cette catégorie se colorent, même mal placées (liseré pointillé). Acquis ensuite. */
+  /* Couleurs : quand 70 % des vignettes d'un GROUPE (hors vignette de départ) sont dans le bon cadre,
+     toutes les vignettes de ce groupe se colorent, même mal placées (liseré pointillé). Acquis ensuite.
+     Un groupe sans vignette à poser (Verre) se colore avec le premier autre groupe de sa catégorie. */
   function evaluate() {
     var tot = {}, ok = {};
     tiles.forEach(function (t) {
       if (t._lock) return;
-      var c = GROUPS[t._g].cat;
-      tot[c] = (tot[c] || 0) + 1;
-      if (isCorrect(t)) ok[c] = (ok[c] || 0) + 1;
+      tot[t._g] = (tot[t._g] || 0) + 1;
+      if (isCorrect(t)) ok[t._g] = (ok[t._g] || 0) + 1;
     });
-    Object.keys(tot).forEach(function (c) {
-      if (!catLit[c] && (ok[c] || 0) >= Math.ceil(THRESH * tot[c] - 1e-9)) catLit[c] = true;
+    GROUPS.forEach(function (g, gi) {
+      if (tot[gi] && !grpLit[gi] && (ok[gi] || 0) >= Math.ceil(THRESH * tot[gi] - 1e-9)) grpLit[gi] = true;
     });
-    L.frames.forEach(function (f) { f.el.classList.toggle("lit", !!catLit[GROUPS[f.g].cat]); });
+    GROUPS.forEach(function (g, gi) {
+      if (tot[gi] || grpLit[gi]) return;
+      grpLit[gi] = GROUPS.some(function (h, hi) { return hi !== gi && h.cat === g.cat && grpLit[hi]; });
+    });
+    L.frames.forEach(function (f) { f.el.classList.toggle("lit", !!grpLit[f.g]); });
     tiles.forEach(function (t) {
-      var lit = !!catLit[GROUPS[t._g].cat];
+      var lit = !!grpLit[t._g];
       t.classList.toggle("lit", lit);
       t.classList.toggle("off", lit && !isCorrect(t));
     });
@@ -1242,7 +1246,7 @@ if (typeof module !== "undefined") module.exports = MatTex;
     elTimer.textContent = fmt(DURATION);
     elTimer.classList.remove("low");
     board.classList.add("locked");
-    catLit = {};
+    grpLit = {};
     tiles.forEach(function (t) { t.classList.remove("lit"); t.classList.remove("off"); });
     build();
     tiles.forEach(function (t) {
