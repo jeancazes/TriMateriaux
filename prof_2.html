@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atelier des matériaux (prof)</title>
+<style>
+  /* Remise à zéro minimale pour une page autonome */
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Mise en page : une table de travail sombre. 54 vignettes en vrac, déplaçables partout ;
+     « Regrouper » les range par catégorie, « Cadres » dessine les groupes en pointillés. */
+  :root {
+    color-scheme: dark;
+    --bg: #14161a;
+    --surface: #1c1f25;
+    --line: #2c3038;
+    --fg: #e8e6e1;
+    --muted: #8b909a;
+    --tile: #2a2e36;
+    --tile-line: #3b404a;
+    --mineral: #8fb7dc;
+    --organique: #86cfa6;
+    --composite: #d9a860;
+    --artificiel: #ea7d68;
+    --font-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-display);
+    padding-inline: 16px;
+    padding-block: 20px 28px;
+  }
+  .wrap { max-width: 1100px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+  h1 { margin: 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    font: 500 0.78rem/1 var(--font-mono);
+    color: var(--fg);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 12px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible, .tile:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  kbd { font: inherit; opacity: 0.7; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 400 0.75rem var(--font-mono); color: var(--muted); min-height: 1.2em; }
+  .legend span { display: none; align-items: center; gap: 6px; }
+  body.colors .legend span { display: inline-flex; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .board {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    touch-action: pan-y;
+    background-image: radial-gradient(var(--line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    transition: height .3s;
+  }
+  .tile {
+    position: absolute;
+    left: 0; top: 0; z-index: 1;
+    width: 124px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    padding-inline: 8px;
+    font-weight: 500; font-size: 0.95rem;
+    text-align: center;
+    background: var(--tile);
+    border: 1px solid var(--tile-line);
+    border-radius: 6px;
+    color: var(--fg);
+    cursor: grab;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+    transition: background-color .2s, border-color .2s, color .2s;
+  }
+  .tile.drag { cursor: grabbing; box-shadow: 0 10px 22px rgba(0,0,0,0.5); transition: none; }
+  body.colors .tile { background: var(--c); border-color: var(--c); color: #14161a; }
+  .board.anim .tile { transition: transform .45s cubic-bezier(.2,.8,.2,1), background-color .2s, border-color .2s, color .2s; }
+
+  .frame {
+    position: absolute; z-index: 0;
+    border: 1.5px dashed var(--muted);
+    border-radius: 10px;
+    pointer-events: none;
+    animation: appear .35s ease both;
+  }
+  .frame b {
+    position: absolute; left: 12px; top: 8px;
+    font: 500 0.72rem/1 var(--font-mono);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  body.colors .frame { border-color: var(--c); }
+  body.colors .frame b { color: var(--c); }
+  .cat {
+    position: absolute; z-index: 0;
+    font: 600 1.05rem/1 var(--font-display);
+    letter-spacing: 0.01em;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--fg);
+    pointer-events: none;
+    animation: appear .35s ease both;
+  }
+  body.colors .cat { border-color: var(--c); }
+  .tip {
+    position: fixed; z-index: 20;
+    max-width: 240px;
+    padding: 8px 11px;
+    background: var(--fg); color: var(--bg);
+    font: 500 0.82rem/1.35 var(--font-display);
+    border-radius: 6px;
+    pointer-events: none;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  }
+  @keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+  .hint { margin: 0; font: 400 0.75rem var(--font-mono); color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) { .tile, .board, .board.anim .tile, .frame, .cat { transition: none; animation: none; } }
+  .tip { display: flex; align-items: center; gap: 10px; max-width: min(320px, calc(100vw - 16px)); }
+  .tipbox { position: relative; flex: none; width: 64px; height: 64px; border-radius: 6px; overflow: hidden; background: #cfcac0; }
+  .tipbox img, .tipbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tiptxt { flex: 1; min-width: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Atelier des matériaux</h1>
+    <div class="actions">
+      <button id="btn-colors" type="button" aria-pressed="false">Couleurs <kbd>Ctrl + 1</kbd></button>
+      <button id="btn-group" type="button">Regrouper</button>
+      <button id="btn-frames" type="button" aria-pressed="false">Cadres</button>
+      <button id="btn-reset" type="button">Réinitialiser</button>
+    </div>
+  </header>
+  <div class="legend" aria-live="polite">
+    <span><i style="background:var(--mineral)"></i>Matières minérales</span>
+    <span><i style="background:var(--organique)"></i>Matières organiques</span>
+    <span><i style="background:var(--composite)"></i>Matières composites</span>
+    <span><i style="background:var(--artificiel)"></i>Matières artificielles</span>
+  </div>
+  <div class="board" id="board"></div>
+  <p class="hint">Glisse les vignettes où tu veux. Survole (ou touche) une vignette pour un indice. Ctrl + 1 affiche ou masque les couleurs.</p>
+</div>
+
+<script>
+var MatTex = (function () {
+  var PI = Math.PI;
+  function hashStr(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function h2(ix, iy, s) {
+    var h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(s, 1103515245)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+  function mkNoise(seed) {
+    function lat(ix, iy) { return h2(ix, iy, seed); }
+    function noise(x, y) {
+      var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+      var a = lat(ix, iy), b = lat(ix + 1, iy), c = lat(ix, iy + 1), d = lat(ix + 1, iy + 1);
+      return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+    }
+    function fbm(x, y, o) {
+      var s = 0, a = 0.5, f = 1, n = 0;
+      for (var i = 0; i < o; i++) { s += a * noise(x * f + i * 17.3, y * f + i * 9.1); n += a; a *= 0.5; f *= 2.03; }
+      return s / n;
+    }
+    return { noise: noise, fbm: fbm };
+  }
+  function voro(x, y, s) {
+    var ix = Math.floor(x), iy = Math.floor(y), d1 = 9, d2 = 9, id = 0, cx = 0, cy = 0;
+    for (var j = -1; j <= 1; j++) for (var i = -1; i <= 1; i++) {
+      var gx = ix + i, gy = iy + j;
+      var px = gx + h2(gx, gy, s), py = gy + h2(gx, gy, s + 17);
+      var dx = px - x, dy = py - y, d = dx * dx + dy * dy;
+      if (d < d1) { d2 = d1; d1 = d; id = h2(gx, gy, s + 41); cx = px; cy = py; }
+      else if (d < d2) d2 = d;
+    }
+    return { d1: Math.sqrt(d1), d2: Math.sqrt(d2), id: id, cx: cx, cy: cy };
+  }
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function smooth(a, b, x) { var t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); }
+  function frac(x) { return x - Math.floor(x); }
+  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function mul(c, k) { return [c[0] * k, c[1] * k, c[2] * k]; }
+  function add(c, d, k) { return [c[0] + d[0] * k, c[1] + d[1] * k, c[2] + d[2] * k]; }
+  var WHITE = [255, 255, 255];
+
+  /* ---------- fabriques ---------- */
+  function brushed(base, grain, shine) {
+    return function (c) {
+      var N = c.N;
+      return function (X, Y) {
+        var n = N.fbm(X * 2.5, Y * 120, 3), m = N.fbm(X * 2.2, Y * 2.2, 3);
+        var k = 0.72 + 0.55 * (grain * n + (1 - grain) * m);
+        var s = Math.pow(Math.abs(Math.sin((X * 1.3 + Y * 0.5) * 3.0)), 10) * shine;
+        return add(mul(base, k), WHITE, s * 0.55);
+      };
+    };
+  }
+  function speck(o) {
+    return function (c) {
+      var N = c.N, s = c.seed;
+      return function (X, Y) {
+        var ix = Math.floor(X * o.scale), iy = Math.floor(Y * o.scale);
+        var r = h2(ix, iy, s), v = h2(ix, iy, s + 9);
+        var m = N.fbm(X * o.fb, Y * o.fb, 4);
+        var col = mul(o.base, 1 + (m - 0.5) * o.fbAmt);
+        var acc = 0;
+        for (var i = 0; i < o.cols.length; i++) {
+          acc += o.cols[i][0];
+          if (r < acc) { col = mul(o.cols[i][1], 0.82 + 0.36 * v); break; }
+        }
+        if (o.blobs) {
+          var vo = voro(X * o.blobs.scale, Y * o.blobs.scale, s + 3);
+          if (vo.d1 < o.blobs.r && vo.id < o.blobs.p) {
+            var bc = o.blobs.cols[Math.floor(vo.id / o.blobs.p * o.blobs.cols.length)];
+            col = mul(bc, 0.85 + 0.3 * (1 - vo.d1 / o.blobs.r));
+          }
+        }
+        return col;
+      };
+    };
+  }
+  function wood(o) {
+    return function (c) {
+      var N = c.N;
+      return function (X, Y) {
+        var t = Y * o.freq + o.warp * N.fbm(X * 1.1, Y * 1.8, 4), d2 = 0;
+        if (o.knot) {
+          var dx = X - o.knot[0], dy = (Y - o.knot[1]) * 1.5;
+          d2 = dx * dx + dy * dy;
+          t += o.knot[2] * Math.exp(-d2 * 22);
+        }
+        var p = Math.pow(frac(t), 2.2);
+        var col = mix(o.light, o.dark, p * 0.9);
+        col = mul(col, 0.9 + 0.2 * N.fbm(X * 3, Y * 150, 3));
+        if (o.knot) col = mix(col, mul(o.dark, 0.5), Math.exp(-d2 * 140));
+        return col;
+      };
+    };
+  }
+  function weave(o) {
+    return function (c) {
+      var N = c.N;
+      return function (X, Y) {
+        var u = X * o.freq, v = Y * o.freq, iu = Math.floor(u), iv = Math.floor(v), fu = u - iu, fv = v - iv;
+        var col;
+        if (((iu + iv) & 1) === 0) {
+          col = mul(o.a, 0.5 + 0.55 * Math.sin(fu * PI));
+          col = mul(col, 0.88 + 0.24 * N.fbm(X * 3, Y * o.freq * 2.5, 2));
+        } else {
+          col = mul(o.b, 0.5 + 0.55 * Math.sin(fv * PI));
+          col = mul(col, 0.88 + 0.24 * N.fbm(X * o.freq * 2.5, Y * 3, 2));
+        }
+        col = mul(col, 1 + o.slub * (N.fbm(X * 3, Y * 3, 3) - 0.5) * 2);
+        return add(col, WHITE, o.gloss * Math.pow(Math.abs(Math.sin((X * 1.1 + Y * 0.6) * 3.2)), 8) * 0.3);
+      };
+    };
+  }
+  function fibers(base, fib, amt, ruled) {
+    return function (c) {
+      var N = c.N;
+      return function (X, Y) {
+        var v = 0.34 * (N.fbm(X * 70, Y * 6, 2) + N.fbm(Y * 70 + 4.3, X * 6, 2) + N.fbm((X + Y) * 50, (X - Y) * 6, 2));
+        var col = mix(base, fib, clamp01((0.5 - v) * amt));
+        col = mul(col, 0.95 + 0.1 * N.fbm(X * 3, Y * 3, 3));
+        if (ruled) {
+          var ly = frac(Y / 0.085);
+          if (ly < 0.025 && Y > 0.1) col = mix(col, [150, 182, 228], 0.65);
+          if (Math.abs(X - 0.22) < 0.004) col = mix(col, [226, 108, 108], 0.7);
+        }
+        return col;
+      };
+    };
+  }
+
+  /* ---------- table des matières ---------- */
+  var GEN = {};
+  GEN["Acier"] = brushed([146, 154, 166], 0.8, 0.5);
+  GEN["Aluminium"] = brushed([204, 208, 212], 0.7, 0.8);
+  GEN["Cuivre"] = brushed([198, 110, 68], 0.6, 0.7);
+  GEN["Laiton"] = brushed([204, 166, 66], 0.6, 0.7);
+  GEN["Or"] = brushed([238, 192, 58], 0.3, 1.0);
+  GEN["Argent"] = brushed([220, 222, 228], 0.4, 1.0);
+  GEN["Fer"] = function (c) {
+    var N = c.N, s = c.seed;
+    return function (X, Y) {
+      var col = mul([98, 101, 108], 0.7 + 0.55 * N.fbm(X * 5, Y * 5, 5));
+      var rust = smooth(0.52, 0.68, N.fbm(X * 4 + 7, Y * 4 + 3, 5));
+      col = mix(col, mix([152, 80, 38], [112, 52, 26], N.fbm(X * 18, Y * 18, 3)), rust * 0.9);
+      if (h2(Math.floor(X * 80), Math.floor(Y * 80), s) < 0.04) col = mul(col, 1.4);
+      return col;
+    };
+  };
+  GEN["Zinc"] = function (c) {
+    return function (X, Y) {
+      var v = voro(X * 7, Y * 7, c.seed), e = smooth(0.0, 0.05, v.d2 - v.d1);
+      var col = mul([148, 166, 184], (0.7 + 0.5 * v.id) * (0.82 + 0.18 * e));
+      return add(col, WHITE, Math.pow(Math.abs(Math.sin((X * 1.2 + Y * 0.8) * 3)), 10) * 0.18);
+    };
+  };
+  GEN["Plomb"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mul([92, 96, 102], 0.7 + 0.5 * N.fbm(X * 6, Y * 6, 5));
+      return add(col, WHITE, smooth(0.78, 0.86, N.fbm(X * 3, Y * 140, 2)) * 0.3);
+    };
+  };
+
+  GEN["Granit"] = speck({ base: [168, 158, 152], scale: 100, fb: 5, fbAmt: 0.3,
+    cols: [[0.2, [30, 30, 34]], [0.14, [238, 232, 226]], [0.14, [186, 118, 108]]] });
+  GEN["Marbre"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var t = X * 3.2 + Y * 2.1 + 2.4 * N.fbm(X * 2.0, Y * 2.0, 5);
+      var vein = Math.pow(1 - Math.abs(Math.sin(t * 3.0)), 16);
+      var t2 = X * 5 - Y * 3 + 3.0 * N.fbm(X * 3 + 5, Y * 3, 4);
+      var v2 = Math.pow(1 - Math.abs(Math.sin(t2 * 4)), 30);
+      var col = mix([238, 238, 240], [78, 84, 98], clamp01(vein * 0.85 + v2 * 0.35));
+      return mul(col, 0.94 + 0.1 * N.fbm(X * 6, Y * 6, 3));
+    };
+  };
+  GEN["Ardoise"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mul([72, 82, 94], 0.65 + 0.5 * (0.6 * N.fbm(X * 1.5, Y * 34, 3) + 0.4 * N.fbm(X * 4, Y * 4, 4)));
+      var v = voro(X * 3.4, Y * 3.4, c.seed);
+      col = mix(col, [22, 26, 32], (1 - smooth(0.0, 0.025, v.d2 - v.d1)) * 0.8);
+      return add(col, WHITE, Math.pow(Math.abs(Math.sin(X * 3 + Y * 1.2)), 12) * 0.08);
+    };
+  };
+  GEN["Calcaire"] = function (c) {
+    var N = c.N, s = c.seed;
+    return function (X, Y) {
+      var col = mul([220, 206, 172], 0.85 + 0.3 * N.fbm(X * 5, Y * 5, 5));
+      col = mix(col, [236, 226, 198], N.fbm(X * 2, Y * 8, 3) * 0.4);
+      if (h2(Math.floor(X * 100), Math.floor(Y * 100), s) < 0.03) col = mul(col, 0.7);
+      return col;
+    };
+  };
+  GEN["Basalte"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mul([54, 56, 60], 0.7 + 0.6 * N.fbm(X * 8, Y * 8, 5));
+      var v = voro(X * 14, Y * 14, c.seed);
+      if (v.id > 0.6 && v.d1 < 0.2) col = mix(col, [14, 14, 16], 1 - smooth(0.1, 0.2, v.d1));
+      return col;
+    };
+  };
+  GEN["Obsidienne"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var dx = X - 1.0, dy = Y - 0.45, d = Math.sqrt(dx * dx + dy * dy);
+      var rip = Math.pow(Math.abs(Math.sin(d * 55 + N.fbm(X * 3, Y * 3, 4) * 7)), 6);
+      var sheen = Math.pow(clamp01(0.5 + 0.5 * Math.sin((X * 1.1 - Y * 0.9) * 4.5 + 1)), 9);
+      return add([13, 13, 18], WHITE, 0.03 + rip * 0.06 + sheen * 0.38);
+    };
+  };
+  GEN["Grès"] = function (c) {
+    var N = c.N, s = c.seed;
+    return function (X, Y) {
+      var b = 0.5 + 0.5 * Math.sin(Y * 30 + N.fbm(X * 1.5, Y * 3, 3) * 6);
+      var col = mix([214, 168, 112], [168, 112, 68], b * 0.8);
+      col = mul(col, 0.9 + 0.2 * h2(Math.floor(X * 90), Math.floor(Y * 90), s));
+      return mul(col, 0.9 + 0.2 * N.fbm(X * 6, Y * 6, 3));
+    };
+  };
+
+  GEN["Diamant"] = function (c) {
+    return function (X, Y) {
+      var v = voro(X * 3.6, Y * 3.6, c.seed), e = 1 - smooth(0.0, 0.04, v.d2 - v.d1);
+      var lt = 0.5 + 0.5 * Math.sin(v.id * 12 + (X + Y) * 3);
+      var col = mul(mix([150, 205, 235], [250, 252, 255], lt * 0.9 + 0.1 * v.id), 0.82 + 0.25 * (1 - v.d1));
+      col = mix(col, WHITE, e * 0.85);
+      return add(col, WHITE, Math.pow(clamp01(1 - v.d1 * 3.2), 10) * (v.id > 0.8 ? 1 : 0.2) * 0.5);
+    };
+  };
+  GEN["Sable"] = function (c) {
+    var N = c.N, s = c.seed;
+    return function (X, Y) {
+      var rp = Math.sin(Y * 36 + N.fbm(X * 3, Y * 3, 3) * 9);
+      var col = mul([216, 188, 128], 1 + 0.07 * rp + (N.fbm(X * 4, Y * 4, 3) - 0.5) * 0.25);
+      var ix = Math.floor(X * 110), iy = Math.floor(Y * 110), r = h2(ix, iy, s), v = h2(ix, iy, s + 5);
+      if (r < 0.1) return mul([150, 115, 70], 0.8 + 0.4 * v);
+      if (r > 0.92) return mul([246, 232, 204], 0.85 + 0.2 * v);
+      return mul(col, 0.92 + 0.16 * v);
+    };
+  };
+  GEN["Argile"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mul([172, 100, 66], 0.85 + 0.35 * N.fbm(X * 3, Y * 3, 4));
+      var v = voro(X * 5.2, Y * 5.2, c.seed);
+      col = mul(col, 0.92 + 0.16 * v.id);
+      return mix(col, [84, 46, 32], (1 - smooth(0.0, 0.045, v.d2 - v.d1)) * 0.85);
+    };
+  };
+  GEN["Terre"] = speck({ base: [76, 50, 32], scale: 50, fb: 6, fbAmt: 0.45,
+    cols: [[0.18, [34, 24, 16]], [0.14, [118, 86, 58]], [0.04, [168, 150, 128]]],
+    blobs: { scale: 10, r: 0.2, p: 0.35, cols: [[110, 92, 76], [140, 120, 100]] } });
+  GEN["Eau"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var wv = Math.sin(X * 16 + N.fbm(X * 3, Y * 3, 3) * 6) + Math.sin(Y * 20 + X * 5 + N.fbm(X * 2.4, Y * 2.4 + 3, 3) * 6);
+      var col = mix([14, 76, 140], [60, 164, 214], clamp01(0.5 + 0.25 * wv));
+      var caus = Math.pow(1 - Math.abs(N.fbm(X * 7, Y * 7, 4) * 2 - 1), 7);
+      return mul(add(col, [210, 240, 230], caus * 0.35), 0.9 + 0.2 * (1 - Y));
+    };
+  };
+  GEN["Sel"] = function (c) {
+    return function (X, Y) {
+      var u = X * 34, v = Y * 34, ix = Math.floor(u), iy = Math.floor(v), fu = u - ix, fv = v - iy;
+      var r = h2(ix, iy, c.seed);
+      if (r < 0.14) return mul([170, 176, 190], 0.85 + 0.2 * h2(ix, iy, c.seed + 2));
+      var col = mul([250, 250, 252], 0.82 + 0.22 * h2(ix, iy, c.seed + 5));
+      if (fu > 0.8 || fv > 0.8) col = mul(col, 0.82);
+      if (fu < 0.18 && fv < 0.18) col = mul(col, 1.05);
+      return col;
+    };
+  };
+
+  GEN["Bois"] = wood({ light: [218, 174, 114], dark: [170, 118, 66], freq: 9, warp: 3 });
+  GEN["Chêne"] = wood({ light: [194, 146, 88], dark: [118, 76, 38], freq: 14, warp: 4, knot: [1.0, 0.5, 2.4] });
+  GEN["Bambou"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var cyl = 0.55 + 0.5 * Math.sin(Y * PI);
+      var base = mix([190, 188, 94], [126, 158, 72], N.fbm(X * 1.5, Y * 2, 3) * 0.7);
+      var col = mul(base, (0.65 + 0.45 * cyl) * (0.9 + 0.2 * N.fbm(X * 4, Y * 160, 2)));
+      var nodes = [0.45, 1.1];
+      for (var i = 0; i < 2; i++) {
+        var dn = Math.abs(X - nodes[i]);
+        if (dn < 0.03) col = mix(col, [94, 88, 42], (1 - dn / 0.03) * 0.85);
+        else if (dn < 0.05) col = mul(col, 1.08);
+      }
+      return add(col, WHITE, Math.exp(-Math.pow((Y - 0.3) / 0.07, 2)) * 0.22);
+    };
+  };
+  GEN["Liège"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var v = voro(X * 16, Y * 16, c.seed);
+      var col = mul(mix([150, 100, 60], [214, 168, 114], v.id), 0.85 + 0.3 * N.fbm(X * 30, Y * 30, 2));
+      col = mix(col, [100, 62, 34], (1 - smooth(0, 0.1, v.d2 - v.d1)) * 0.45);
+      if (h2(Math.floor(X * 60), Math.floor(Y * 60), c.seed) < 0.04) col = [92, 56, 30];
+      return col;
+    };
+  };
+  GEN["Cellulose"] = fibers([238, 242, 246], [196, 206, 212], 3.0, false);
+  GEN["Lin"] = weave({ a: [214, 196, 160], b: [200, 182, 146], freq: 26, slub: 0.35, gloss: 0.2 });
+  GEN["Coton"] = weave({ a: [244, 242, 236], b: [236, 234, 228], freq: 40, slub: 0.08, gloss: 0 });
+  GEN["Chanvre"] = weave({ a: [150, 134, 92], b: [134, 120, 82], freq: 16, slub: 0.4, gloss: 0 });
+  GEN["Latex"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var w = N.fbm(X * 1.6, Y * 1.6, 3), t = N.fbm(X * 2.2 + w * 1.6, Y * 2.2 - w * 1.4, 4);
+      var col = mix([222, 212, 192], [253, 250, 243], t);
+      return add(col, WHITE, Math.pow(clamp01(N.fbm(X * 3 + 9, Y * 3, 3) * 1.6 - 0.3), 5) * 0.35);
+    };
+  };
+  GEN["Résine"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var g = 0.5 + 0.5 * Math.sin((X * 0.9 + Y * 0.6) * 2.2 + N.fbm(X * 2, Y * 2, 3) * 3);
+      var col = mix([144, 60, 6], [244, 170, 40], g);
+      var v = voro(X * 11, Y * 11, c.seed);
+      if (v.id > 0.72 && v.d1 < 0.14) col = mix(mul(col, 1.25), [255, 225, 150], 0.35 * (1 - smooth(0.08, 0.14, v.d1)));
+      return add(col, WHITE, Math.pow(clamp01(0.5 + 0.5 * Math.sin((X * 1.3 - Y) * 5)), 12) * 0.35);
+    };
+  };
+  GEN["Paille"] = function (c) {
+    var N = c.N, a = 0.45;
+    return function (X, Y) {
+      var u = X * Math.cos(a) + Y * Math.sin(a), v = -X * Math.sin(a) + Y * Math.cos(a);
+      var band = Math.floor(v * 30), lv = v * 30 - band;
+      var base = mix([205, 170, 70], [238, 212, 120], h2(band, 1, c.seed));
+      var col = mul(base, (0.6 + 0.55 * Math.sin(lv * PI)) * (0.85 + 0.3 * N.fbm(u * 8, band * 7.1, 2)));
+      if (lv < 0.07) col = mul(col, 0.4);
+      return col;
+    };
+  };
+
+  GEN["Kératine"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var t = 0.5 + 0.5 * Math.sin(Y * 140 + N.fbm(X * 2, Y * 3, 3) * 5);
+      var col = mix([150, 100, 58], [222, 186, 132], 0.4 * t + 0.6 * N.fbm(X * 2, Y * 2, 3));
+      return add(col, WHITE, Math.pow(Math.abs(Math.sin(X * 2 + Y)), 10) * 0.25);
+    };
+  };
+  GEN["Chitine"] = function (c) {
+    return function (X, Y) {
+      var v = voro(X * 3, Y * 3, c.seed);
+      var col = mul(mix([170, 90, 30], [232, 150, 60], v.id), 1 - v.d1 * 0.8);
+      col = add(col, WHITE, Math.pow(clamp01(1 - v.d1 * 2.2), 6) * 0.45);
+      return mix(col, [58, 28, 10], (1 - smooth(0, 0.05, v.d2 - v.d1)) * 0.9);
+    };
+  };
+  GEN["Ivoire"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var a = Math.sin((X + Y) * 95 + N.fbm(X * 3, Y * 3, 3) * 4), b = Math.sin((X - Y) * 95 + N.fbm(X * 3 + 7, Y * 3, 3) * 4);
+      var col = mul(mix([228, 214, 182], [244, 236, 214], N.fbm(X * 2, Y * 2, 3)), 0.9 + 0.18 * (0.5 + 0.25 * a * b));
+      return mul(col, 0.96 + 0.08 * N.fbm(X * 3, Y * 80, 2));
+    };
+  };
+  GEN["Laine"] = function (c) {
+    var N = c.N, s = c.seed;
+    return function (X, Y) {
+      var rows = 14, r = Math.floor(Y * rows), ry = Y * rows - r;
+      var tw = Math.sin(X * 45 + ry * 6 + r * 2);
+      var sh = Math.sin(ry * PI) * (0.75 + 0.25 * tw);
+      var col = mul([236, 226, 206], 0.5 + 0.6 * sh);
+      var f = h2(Math.floor(X * 130), Math.floor(Y * 130), s);
+      return mul(col, 0.88 + 0.2 * f + 0.1 * N.fbm(X * 8, Y * 8, 2));
+    };
+  };
+  GEN["Soie"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var t = X * 2 + Y * 1.3 + N.fbm(X * 1.6, Y * 1.6, 3) * 2.5;
+      return mix([172, 132, 140], [252, 238, 232], Math.pow(Math.abs(Math.sin(t * 4.2)), 2.2));
+    };
+  };
+  GEN["Os"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mix([218, 208, 184], [238, 232, 214], N.fbm(X * 3, Y * 3, 4));
+      var v = voro(X * 20, Y * 20, c.seed);
+      if (v.id > 0.5) col = mix(col, [132, 106, 76], (1 - smooth(0.06, 0.14, v.d1)) * 0.85);
+      return col;
+    };
+  };
+  GEN["Cire"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var px = X * 14, py = Y * 14;
+      var q = Math.sqrt(3) / 3 * px - py / 3, r = 2 / 3 * py, s = -q - r;
+      var rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
+      var dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs - s);
+      if (dq > dr && dq > ds) rq = -rr - rs; else if (dr > ds) rr = -rq - rs;
+      var cx = Math.sqrt(3) * (rq + rr / 2), cy = 1.5 * rr, dx = px - cx, dy = py - cy;
+      var h = Math.max(Math.abs(dx) / 0.866, (Math.abs(dx) * 0.5 + Math.abs(dy) * 0.866) / 0.866);
+      var col = mix([244, 192, 58], [196, 124, 18], clamp01(h * 0.9));
+      col = mul(col, 0.9 + 0.2 * N.fbm(X * 6, Y * 6, 3));
+      if (h > 0.86) col = mix(col, [252, 222, 130], smooth(0.86, 0.94, h));
+      return col;
+    };
+  };
+
+  GEN["Charbon"] = function (c) {
+    return function (X, Y) {
+      var v = voro(X * 5.5, Y * 5.5, c.seed);
+      var lx = X * 5.5 - v.cx, ly = Y * 5.5 - v.cy;
+      var lit = clamp01(0.5 + (-lx * 0.7 - ly * 0.7) * 0.9) * (0.4 + 0.8 * v.id);
+      var col = add([18, 18, 20], [120, 124, 136], lit * 0.5);
+      col = mix(col, [6, 6, 8], (1 - smooth(0, 0.05, v.d2 - v.d1)) * 0.9);
+      if (h2(Math.floor(X * 150), Math.floor(Y * 150), c.seed) > 0.9975) col = [150, 155, 168];
+      return col;
+    };
+  };
+  GEN["Goudron"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var sw = Math.pow(N.fbm(X * 2.5, Y * 2.5, 4), 3);
+      var col = mix([10, 10, 12], [38, 42, 64], clamp01(sw * 2));
+      return add(col, WHITE, Math.pow(clamp01(N.fbm(X * 3 + 5, Y * 3, 3) * 1.8 - 0.55), 3) * 0.7);
+    };
+  };
+
+  GEN["Béton"] = speck({ base: [146, 146, 142], scale: 70, fb: 8, fbAmt: 0.35,
+    cols: [[0.1, [90, 90, 88]], [0.08, [190, 190, 184]]],
+    blobs: { scale: 11, r: 0.28, p: 0.5, cols: [[120, 118, 112], [170, 162, 150], [140, 130, 120]] } });
+  GEN["Ciment"] = speck({ base: [162, 162, 160], scale: 120, fb: 5, fbAmt: 0.25,
+    cols: [[0.15, [120, 120, 118]], [0.12, [200, 200, 196]]] });
+  GEN["Brique"] = function (c) {
+    var N = c.N, bh = 0.2, bw = 0.5, m = 0.022;
+    return function (X, Y) {
+      var row = Math.floor(Y / bh), xx = X + ((row & 1) ? bw / 2 : 0), ci = Math.floor(xx / bw);
+      var lx = xx - ci * bw, ly = Y - row * bh;
+      if (lx < m || ly < m) return mul([196, 190, 178], 0.9 + 0.2 * N.fbm(X * 60, Y * 60, 2));
+      var col = mul(mix([140, 58, 40], [178, 86, 58], h2(ci, row, c.seed)), 0.8 + 0.4 * N.fbm(X * 18, Y * 18, 4));
+      return h2(Math.floor(X * 90), Math.floor(Y * 90), c.seed) < 0.05 ? mul(col, 0.7) : col;
+    };
+  };
+  GEN["Plâtre"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mul([238, 236, 230], 0.95 + 0.1 * N.fbm(X * 2, Y * 2, 4));
+      col = mul(col, 1 - 0.03 * Math.pow(Math.abs(Math.sin((X * 1.4 + Y) * 14 + N.fbm(X * 2, Y * 2, 3) * 3)), 4));
+      return h2(Math.floor(X * 80), Math.floor(Y * 80), c.seed) < 0.012 ? mul(col, 0.8) : col;
+    };
+  };
+  GEN["Céramique"] = function (c) {
+    var N = c.N, tile = 0.52, g = 0.026;
+    return function (X, Y) {
+      var ix = Math.floor(X / tile), iy = Math.floor(Y / tile), lx = X - ix * tile, ly = Y - iy * tile;
+      if (lx < g || ly < g) return [222, 218, 208];
+      var col = mul(mul([200, 104, 60], 0.85 + 0.2 * h2(ix, iy, c.seed)), 0.9 + 0.2 * N.fbm(X * 10, Y * 10, 3));
+      var v = voro(X * 26, Y * 26, c.seed);
+      col = mix(col, mul(col, 0.65), (1 - smooth(0, 0.035, v.d2 - v.d1)) * 0.5);
+      return add(col, WHITE, Math.pow(clamp01(1 - (lx / tile + ly / tile) * 0.9), 3) * 0.25);
+    };
+  };
+  GEN["Porcelaine"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var base = mix([244, 244, 247], [252, 252, 254], N.fbm(X * 2, Y * 2, 3));
+      var dx = X - 0.8, dy = Y - 0.5, r = Math.sqrt(dx * dx + dy * dy), ang = Math.atan2(dy, dx);
+      var l1 = Math.exp(-Math.pow((r - 0.43) / 0.007, 2)), l2 = Math.exp(-Math.pow((r - 0.39) / 0.005, 2));
+      var sc = Math.exp(-Math.pow((r - 0.3 - 0.025 * Math.sin(ang * 14)) / 0.012, 2));
+      var col = mix(base, [40, 76, 160], clamp01(l1 * 0.9 + l2 * 0.7 + sc * 0.8));
+      return add(col, WHITE, Math.pow(clamp01(0.5 + 0.5 * Math.sin((X * 1.2 - Y) * 3.4)), 12) * 0.2);
+    };
+  };
+  GEN["Papier"] = fibers([247, 245, 238], [226, 222, 212], 2.0, true);
+  GEN["Carton"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var fib = 0.9 + 0.2 * N.fbm(X * 60, Y * 8, 2);
+      if (Y < 0.2 || Y > 0.8) return mul([182, 140, 90], fib * (Y < 0.2 ? 1 : 0.92));
+      var yc = 0.5 + 0.2 * Math.sin(X * 24);
+      if (Math.abs(Y - yc) < 0.03) return mul([156, 112, 66], fib);
+      var up = Y < yc;
+      return mul([96, 66, 38], (up ? 0.9 : 1.15) * (0.8 + 0.4 * Math.abs(Y - 0.5)));
+    };
+  };
+  GEN["Cuir"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var v = voro(X * 20, Y * 20, c.seed);
+      var col = mul([128, 76, 44], (0.75 + 0.4 * (1 - v.d1) * (0.8 + 0.4 * v.id)) * (0.94 + 0.12 * N.fbm(X * 50, Y * 50, 2)));
+      col = mix(col, [48, 26, 14], (1 - smooth(0, 0.07, v.d2 - v.d1)) * 0.8);
+      return add(col, WHITE, Math.pow(clamp01(0.5 + 0.5 * Math.sin((X * 1.2 - Y * 0.8) * 4)), 10) * 0.12);
+    };
+  };
+
+  GEN["Contre-plaqué"] = function (c) {
+    var N = c.N, layers = 11;
+    return function (X, Y) {
+      var li = Math.floor(Y * layers), ly = Y * layers - li;
+      var base = mix([190, 146, 92], [222, 184, 128], h2(li, 3, c.seed)), col;
+      if (li & 1) col = mul(base, 0.75 + 0.35 * h2(Math.floor(X * 70), Math.floor(Y * 70), c.seed));
+      else col = mul(base, 0.85 + 0.3 * N.fbm(X * 3, Y * 160, 3));
+      return (ly < 0.06 || ly > 0.96) ? mul(col, 0.55) : col;
+    };
+  };
+  GEN["Fibre de carbone"] = function (c) {
+    return function (X, Y) {
+      var u = X * 30, v = Y * 30, iu = Math.floor(u), iv = Math.floor(v), fu = u - iu, fv = v - iv;
+      var over = (((iu - iv) % 4) + 4) % 4 < 2, col;
+      if (over) col = mul([36, 37, 40], 0.45 + 1.0 * Math.sin(fu * PI));
+      else col = mul([28, 29, 32], 0.45 + 1.0 * Math.sin(fv * PI));
+      return add(col, [125, 130, 140], Math.pow(Math.abs(Math.sin(X * 2.2 + Y * 1.4)), 5) * (over ? 0.45 : 0.25));
+    };
+  };
+  GEN["Fibre de verre"] = weave({ a: [226, 234, 228], b: [208, 220, 212], freq: 30, slub: 0.1, gloss: 1.2 });
+
+  GEN["PVC"] = function (c) {
+    return function (X, Y) {
+      var k = 0.5 + 0.55 * Math.pow(Math.sin(Y * PI), 0.7);
+      var col = add(mul([240, 240, 242], k), WHITE, Math.exp(-Math.pow((Y - 0.28) / 0.05, 2)) * 0.35);
+      var j = Math.exp(-Math.pow((X - 1.2) / 0.005, 2)) + Math.exp(-Math.pow((X - 1.32) / 0.005, 2));
+      col = mul(col, 1 - 0.5 * clamp01(j));
+      return (X > 1.2 && X < 1.32) ? mul(col, 1.04) : col;
+    };
+  };
+  GEN["Polyéthylène"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var rid = Math.pow(1 - Math.abs(N.fbm(X * 4, Y * 4, 4) * 2 - 1), 3);
+      var col = mix([200, 216, 226], [236, 244, 248], N.fbm(X * 2, Y * 2, 3));
+      return add(col, WHITE, rid * 0.5);
+    };
+  };
+  GEN["PLA"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var pitch = 0.024, li = Math.floor(Y / pitch), f = Y / pitch - li;
+      var col = mul([38, 172, 160], 0.5 + 0.6 * Math.sin(f * PI));
+      return mul(col, (0.92 + 0.16 * N.fbm(X * 4, Y * 60, 2)) * (0.94 + 0.12 * h2(li, 7, c.seed)));
+    };
+  };
+  GEN["Nylon"] = function (c) {
+    var base = weave({ a: [214, 72, 56], b: [196, 60, 46], freq: 62, slub: 0.05, gloss: 1.2 })(c);
+    return function (X, Y) {
+      var col = base(X, Y);
+      return (frac(X / 0.12) < 0.03 || frac(Y / 0.12) < 0.03) ? mul(col, 1.18) : col;
+    };
+  };
+  GEN["Silicone"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mix([128, 196, 196], [196, 236, 228], N.fbm(X * 2, Y * 2, 4));
+      col = add(col, WHITE, Math.pow(clamp01(N.fbm(X * 2.4 + 3, Y * 2.4, 3) * 1.8 - 0.45), 3) * 0.5);
+      var v = voro(X * 16, Y * 16, c.seed);
+      return (v.id > 0.88 && v.d1 < 0.1) ? mix(col, WHITE, 0.4) : col;
+    };
+  };
+  GEN["Caoutchouc"] = function (c) {
+    return function (X, Y) {
+      var g = h2(Math.floor(X * 120), Math.floor(Y * 120), c.seed);
+      var col = mul([32, 32, 35], 0.8 + 0.5 * g);
+      return mul(col, 0.75 + 0.35 * (0.5 + 0.5 * Math.sin(Y * 60)));
+    };
+  };
+  GEN["Polyester"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var fz = h2(Math.floor(X * 140), Math.floor(Y * 140), c.seed);
+      var col = mul(mul([74, 112, 172], 0.7 + 0.5 * N.fbm(X * 10, Y * 10, 3)), 0.85 + 0.3 * fz);
+      return fz > 0.9 ? add(col, WHITE, 0.15) : col;
+    };
+  };
+  GEN["Plexiglas"] = function (c) {
+    return function (X, Y) {
+      var chk = ((Math.floor(X * 9) + Math.floor(Y * 9)) & 1) ? [205, 214, 220] : [184, 196, 205];
+      var col = mix(chk, [170, 214, 236], 0.35);
+      col = add(col, WHITE, Math.pow(clamp01(0.5 + 0.5 * Math.sin((X * 1.6 - Y * 1.1) * 5.5)), 12) * 0.55);
+      var e = Math.min(X, 1.6 - X, Y, 1 - Y);
+      return e < 0.06 ? mix(col, [90, 200, 230], (1 - e / 0.06) * 0.6) : col;
+    };
+  };
+  GEN["Polystyrène"] = function (c) {
+    return function (X, Y) {
+      var v = voro(X * 24, Y * 24, c.seed);
+      var col = mul([245, 245, 245], 0.78 + 0.3 * (1 - v.d1 * 1.4));
+      return mix(col, [180, 180, 186], (1 - smooth(0, 0.08, v.d2 - v.d1)) * 0.8);
+    };
+  };
+  GEN["Verre"] = function (c) {
+    var N = c.N;
+    return function (X, Y) {
+      var col = mix([196, 230, 222], [140, 196, 178], clamp01(Y * 0.9 + N.fbm(X * 2, Y * 2, 3) * 0.3));
+      col = add(col, WHITE, Math.pow(clamp01(0.5 + 0.5 * Math.sin((X * 1.4 - Y * 0.9) * 4 + 1)), 14) * 0.6);
+      var v = voro(X * 20, Y * 20, c.seed);
+      if (v.id > 0.96 && v.d1 < 0.09) col = mix(col, [235, 250, 246], 0.6);
+      return Math.min(Y, 1 - Y) < 0.07 ? mix(col, [60, 130, 110], 0.7) : col;
+    };
+  };
+
+  function render(name, w, h) {
+    var g = GEN[name], out = new Uint8ClampedArray(w * h * 4);
+    var seed = hashStr(name);
+    var fn = g({ N: mkNoise(seed & 0xffff), seed: seed & 0xffff });
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var c = fn(x / h, y / h);
+        var dx = x / w - 0.5, dy = y / h - 0.5, vig = 1 - 0.35 * (dx * dx + dy * dy);
+        var i = (y * w + x) * 4;
+        out[i] = c[0] * vig; out[i + 1] = c[1] * vig; out[i + 2] = c[2] * vig; out[i + 3] = 255;
+      }
+    }
+    return out;
+  }
+  return { render: render, names: Object.keys(GEN) };
+})();
+if (typeof module !== "undefined") module.exports = MatTex;
+</script>
+<script>
+(function () {
+  var CATS = [
+    { id: "mineral", name: "Matières minérales", groups: [
+      { title: "Métaux", items: ["Acier", "Aluminium", "Cuivre", "Fer", "Laiton", "Zinc", "Or", "Argent", "Plomb"] },
+      { title: "Roches", items: ["Granit", "Marbre", "Ardoise", "Calcaire", "Basalte", "Obsidienne", "Grès"] },
+      { title: "Minéraux, sols et eau", items: ["Diamant", "Sable", "Argile", "Terre", "Eau", "Sel"] }
+    ]},
+    { id: "organique", name: "Matières organiques", groups: [
+      { title: "Végétales", items: ["Bois", "Chêne", "Bambou", "Liège", "Cellulose", "Lin", "Coton", "Chanvre", "Latex", "Résine", "Paille"] },
+      { title: "Animales", items: ["Kératine", "Chitine", "Ivoire", "Laine", "Soie", "Os", "Cire"] },
+      { title: "Fossiles", items: ["Charbon", "Goudron"] }
+    ]},
+    { id: "composite", name: "Matières composites", groups: [
+      { title: "Construction", items: ["Béton", "Ciment", "Brique", "Plâtre"] },
+      { title: "Céramiques", items: ["Céramique", "Porcelaine"] },
+      { title: "Papier, carton, cuir", items: ["Papier", "Carton", "Cuir"] },
+      { title: "Composites techniques", items: ["Contre-plaqué", "Fibre de carbone", "Fibre de verre"] }
+    ]},
+    { id: "artificiel", name: "Matières artificielles", groups: [
+      { title: "Polymères", items: ["PVC", "Polyéthylène", "PLA", "Nylon", "Silicone", "Caoutchouc", "Polyester", "Plexiglas", "Polystyrène"] },
+      { title: "Verre", items: ["Verre"] }
+    ]}
+  ];
+
+  // Indices affichés au survol : simples, sans donner le nom de la catégorie.
+  var CLUES = {
+    "Acier": "Alliage de fer, brille et conduit l'électricité",
+    "Aluminium": "Léger, brille et conduit l'électricité",
+    "Cuivre": "Rougeâtre, brille et conduit très bien l'électricité",
+    "Fer": "Rouille, attiré par un aimant, conduit l'électricité",
+    "Laiton": "Alliage de cuivre et de zinc, brille et conduit l'électricité",
+    "Zinc": "Gris-bleu qui brille, protège l'acier de la rouille",
+    "Or": "Brille, inaltérable, conduit l'électricité",
+    "Argent": "Brille, c'est le meilleur conducteur électrique",
+    "Plomb": "Gris, très dense et mou, conduit l'électricité",
+    "Granit": "Pierre dure aux grains visibles, magma refroidi lentement",
+    "Marbre": "Pierre polie et brillante des statues",
+    "Ardoise": "Pierre grise en feuillets, couvre les toits",
+    "Calcaire": "Pierre qui fait effervescence avec du vinaigre",
+    "Basalte": "Pierre noire issue d'une coulée de lave",
+    "Obsidienne": "Pierre noire et coupante, lave refroidie très vite",
+    "Grès": "Pierre faite de grains de sable collés",
+    "Diamant": "Cristal de carbone, le plus dur de tous",
+    "Sable": "Petits grains meubles de la plage",
+    "Argile": "Sol très fin qui se modèle mouillé",
+    "Terre": "Sol du jardin, mélange de minéraux et d'humus",
+    "Eau": "Liquide qui se solidifie à 0 °C",
+    "Sel": "Cristaux cubiques qui se dissolvent dans l'eau",
+    "Bois": "Vient du tronc des arbres",
+    "Chêne": "Vient d'un arbre qui donne des glands",
+    "Bambou": "Vient d'une herbe géante à tige creuse",
+    "Liège": "Vient de l'écorce d'un arbre",
+    "Cellulose": "Molécule qui forme la paroi des cellules des plantes",
+    "Lin": "Fibre d'une plante à fleurs bleues",
+    "Coton": "Fibre qui entoure les graines du cotonnier",
+    "Chanvre": "Fibre solide d'une plante, utilisée pour les cordes",
+    "Latex": "Sève blanche d'un arbre, l'hévéa",
+    "Résine": "Sève collante des conifères",
+    "Paille": "Tige sèche d'une céréale",
+    "Kératine": "Protéine des cheveux, des ongles et des plumes",
+    "Chitine": "Carapace des insectes et des crabes",
+    "Ivoire": "Défenses d'éléphant",
+    "Laine": "Poils du mouton",
+    "Soie": "Fil produit par un ver",
+    "Os": "Squelette des vertébrés, riche en calcium",
+    "Cire": "Fabriquée par les abeilles pour leurs rayons",
+    "Charbon": "Noir, issu de forêts enfouies il y a des millions d'années",
+    "Goudron": "Noir et collant, issu du pétrole, donc d'êtres vivants enfouis",
+    "Béton": "Mélange de ciment, de sable et de gravier pour bâtir",
+    "Ciment": "Poudre grise qui durcit avec l'eau pour bâtir",
+    "Brique": "Argile moulée puis cuite, pour bâtir",
+    "Plâtre": "Poudre blanche + eau, pour les murs intérieurs",
+    "Céramique": "Argile cuite : assiettes et carrelage",
+    "Porcelaine": "Argile blanche cuite à très haute température",
+    "Papier": "Fibres végétales réduites en feuille",
+    "Carton": "Papier épais, souvent ondulé",
+    "Cuir": "Peau animale tannée",
+    "Contre-plaqué": "Feuilles de bois collées en croisant les fibres",
+    "Fibre de carbone": "Fibres noires dans une résine : léger et très rigide",
+    "Fibre de verre": "Fibres de verre dans une résine : coques de bateaux",
+    "PVC": "Fabriqué à partir de pétrole : tuyaux blancs",
+    "Polyéthylène": "Fabriqué à partir de pétrole : sacs et bouteilles souples",
+    "PLA": "Fabriqué à partir de maïs : filament d'imprimante 3D",
+    "Nylon": "Fabriqué en usine : fibre des collants",
+    "Silicone": "Fabriqué en usine, souple : moules de cuisine",
+    "Caoutchouc": "Élastique, souvent synthétique : pneus",
+    "Polyester": "Fibre fabriquée en usine : vêtements polaires",
+    "Plexiglas": "Fabriqué en usine, transparent et léger",
+    "Polystyrène": "Fabriqué en usine, blanc et léger : cale les colis",
+    "Verre": "Sable fondu puis refroidi, transparent"
+  };
+
+  var tip = document.createElement("div");
+  tip.className = "tip";
+  tip.setAttribute("role", "tooltip");
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  tip.innerHTML = '<div class="tipbox"><canvas width="64" height="64"></canvas><img alt="" hidden></div><div class="tiptxt"></div>';
+  var tipCv = tip.querySelector("canvas"), tipPic = tip.querySelector("img"), tipTxt = tip.querySelector(".tiptxt");
+  var texCache = {}, picOk = {};
+  function slug(n) { return n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+  function drawTex(name) {
+    var d = texCache[name];
+    if (d === undefined) {
+      try { d = new ImageData(MatTex.render(name, 64, 64), 64, 64); } catch (e) { d = null; }
+      texCache[name] = d;
+    }
+    if (d) tipCv.getContext("2d").putImageData(d, 0, 0);
+    tipCv.hidden = !d;
+  }
+  // Vignette : illustration images/<nom>.png si elle existe, sinon la texture dessinée en code.
+  function showPic(name) {
+    var s = slug(name);
+    drawTex(name);
+    tipPic.hidden = true;
+    if (picOk[s] === false) return;
+    tipPic.dataset.n = s;
+    tipPic.onload = function () { picOk[s] = true; if (tipPic.dataset.n === s) tipPic.hidden = false; };
+    tipPic.onerror = function () { picOk[s] = false; };
+    tipPic.src = "images/" + s + ".png";
+  }
+  var tipTimer = null;
+  function showTip(el) {
+    var txt = CLUES[el.textContent];
+    if (!txt) return;
+    clearTimeout(tipTimer);
+    tipTxt.textContent = txt;
+    showPic(el.textContent);
+    tip.hidden = false;
+    var r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
+    var top = r.top - th - 8;
+    if (top < 8) top = r.bottom + 8;
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
+  function hideTip() { clearTimeout(tipTimer); tip.hidden = true; }
+
+  var board = document.getElementById("board");
+  var W = 124, H = 46, GAP = 12, PAD = 16, EXTRA = 150;
+  var GP = 14, TH = 32, CH = 40, GG = 16;
+  var tiles = [], byName = {}, z = 1, grouped = false, framesOn = false, overlay = [];
+
+  var items = [];
+  CATS.forEach(function (c) {
+    c.groups.forEach(function (g) {
+      g.items.forEach(function (n) { items.push({ name: n, cat: c.id }); });
+    });
+  });
+  // Mélange reproductible (graine fixe) pour que la position ne trahisse pas la catégorie.
+  var seed = 20261013;
+  function rnd() { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }
+  for (var i = items.length - 1; i > 0; i--) {
+    var j = Math.floor(rnd() * (i + 1));
+    var t = items[i]; items[i] = items[j]; items[j] = t;
+  }
+
+  items.forEach(function (it) {
+    var el = document.createElement("div");
+    el.className = "tile";
+    el.tabIndex = 0;
+    el.textContent = it.name;
+    el.style.setProperty("--c", "var(--" + it.cat + ")");
+    board.appendChild(el);
+    tiles.push(el);
+    byName[it.name] = el;
+    bindDrag(el);
+    el.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse" && !el.classList.contains("drag")) showTip(el); });
+    el.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") hideTip(); });
+    el.addEventListener("focus", function () { showTip(el); });
+    el.addEventListener("blur", hideTip);
+    var tx = 0, ty = 0;
+    el.addEventListener("pointerdown", function (e) { tx = e.clientX; ty = e.clientY; hideTip(); });
+    el.addEventListener("pointerup", function (e) {
+      if (e.pointerType === "mouse") { showTip(el); return; }
+      if (Math.abs(e.clientX - tx) < 6 && Math.abs(e.clientY - ty) < 6) {
+        showTip(el);
+        tipTimer = setTimeout(hideTip, 2500);
+      }
+    });
+  });
+
+  function place(el, x, y) {
+    el._x = x; el._y = y;
+    el.style.transform = "translate(" + x + "px," + y + "px)";
+  }
+  function animate() {
+    board.classList.add("anim");
+    clearTimeout(animate._t);
+    animate._t = setTimeout(function () { board.classList.remove("anim"); }, 500);
+  }
+  function clearOverlay() {
+    overlay.forEach(function (n) { n.remove(); });
+    overlay = [];
+  }
+  function setFrames(on) {
+    framesOn = on;
+    document.getElementById("btn-frames").setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  // Grille mélangée de départ.
+  function layout() {
+    clearOverlay(); setFrames(false); grouped = false;
+    var bw = board.clientWidth;
+    var cols = Math.max(1, Math.floor((bw - PAD * 2 + GAP) / (W + GAP)));
+    var rows = Math.ceil(tiles.length / cols);
+    board.style.height = (PAD * 2 + rows * (H + GAP) - GAP + EXTRA) + "px";
+    animate();
+    tiles.forEach(function (el, i) {
+      place(el, PAD + (i % cols) * (W + GAP), PAD + Math.floor(i / cols) * (H + GAP));
+    });
+  }
+
+  // Rangement par catégorie puis par groupe.
+  function compute() {
+    var bw = board.clientWidth, y = PAD, frames = [], cats = [], pos = {};
+    var maxCols = Math.max(1, Math.floor((bw - 2 * PAD - 2 * GP + GAP) / (W + GAP)));
+    var cols = Math.min(3, maxCols);
+    var fw = cols * (W + GAP) - GAP + 2 * GP;
+    var perLine = Math.max(1, Math.floor((bw - 2 * PAD + GG) / (fw + GG)));
+    // Tous les cadres ont la même largeur : ils forment eux-mêmes une grille.
+    CATS.forEach(function (cat) {
+      cats.push({ x: PAD, y: y, text: cat.name, id: cat.id });
+      y += CH;
+      for (var s = 0; s < cat.groups.length; s += perLine) {
+        var line = cat.groups.slice(s, s + perLine);
+        var maxRows = 0;
+        line.forEach(function (g) { maxRows = Math.max(maxRows, Math.ceil(g.items.length / cols)); });
+        var fh = TH + maxRows * (H + GAP) - GAP + GP;
+        line.forEach(function (g, k) {
+          var x = PAD + k * (fw + GG);
+          frames.push({ x: x, y: y, w: fw, h: fh, title: g.title, id: cat.id });
+          g.items.forEach(function (name, i) {
+            pos[name] = { x: x + GP + (i % cols) * (W + GAP), y: y + TH + Math.floor(i / cols) * (H + GAP) };
+          });
+        });
+        y += fh + GG;
+      }
+      y += 10;
+    });
+    return { frames: frames, cats: cats, pos: pos, height: y - GG };
+  }
+  function drawOverlay(L) {
+    clearOverlay();
+    L.cats.forEach(function (c) {
+      var d = document.createElement("div");
+      d.className = "cat";
+      d.textContent = c.text;
+      d.style.cssText = "left:" + c.x + "px;top:" + c.y + "px;--c:var(--" + c.id + ")";
+      board.appendChild(d); overlay.push(d);
+    });
+    L.frames.forEach(function (f) {
+      var d = document.createElement("div");
+      d.className = "frame";
+      d.style.cssText = "left:" + f.x + "px;top:" + f.y + "px;width:" + f.w + "px;height:" + f.h + "px;--c:var(--" + f.id + ")";
+      var b = document.createElement("b");
+      b.textContent = f.title;
+      d.appendChild(b);
+      board.appendChild(d); overlay.push(d);
+    });
+  }
+  function group() {
+    var L = compute();
+    grouped = true;
+    board.style.height = L.height + "px";
+    animate();
+    Object.keys(L.pos).forEach(function (n) { place(byName[n], L.pos[n].x, L.pos[n].y); });
+    if (framesOn) drawOverlay(L); else clearOverlay();
+  }
+  function toggleFrames() {
+    if (framesOn) { setFrames(false); clearOverlay(); return; }
+    setFrames(true);
+    group();
+  }
+  function dropFrames() {
+    if (!framesOn) return;
+    setFrames(false); clearOverlay();
+  }
+
+  function clamp(el, x, y) {
+    var maxX = board.clientWidth - el.offsetWidth;
+    var maxY = board.clientHeight - el.offsetHeight;
+    return [Math.min(Math.max(0, x), Math.max(0, maxX)), Math.min(Math.max(0, y), Math.max(0, maxY))];
+  }
+  function bindDrag(el) {
+    var sx, sy, ox, oy, id = null;
+    el.addEventListener("pointerdown", function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      id = e.pointerId;
+      el.setPointerCapture(id);
+      sx = e.clientX; sy = e.clientY; ox = el._x; oy = el._y;
+      el.classList.add("drag");
+      el.style.zIndex = ++z;
+      e.preventDefault();
+    });
+    el.addEventListener("pointermove", function (e) {
+      if (id !== e.pointerId) return;
+      var c = clamp(el, ox + e.clientX - sx, oy + e.clientY - sy);
+      if (c[0] !== ox || c[1] !== oy) dropFrames();
+      place(el, c[0], c[1]);
+    });
+    function end(e) {
+      if (id !== e.pointerId) return;
+      id = null;
+      el.classList.remove("drag");
+    }
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+    el.addEventListener("keydown", function (e) {
+      var d = e.shiftKey ? 40 : 12, dx = 0, dy = 0;
+      if (e.key === "ArrowLeft") dx = -d;
+      else if (e.key === "ArrowRight") dx = d;
+      else if (e.key === "ArrowUp") dy = -d;
+      else if (e.key === "ArrowDown") dy = d;
+      else return;
+      e.preventDefault();
+      dropFrames();
+      var c = clamp(el, el._x + dx, el._y + dy);
+      place(el, c[0], c[1]);
+      el.style.zIndex = ++z;
+    });
+  }
+
+  var btnColors = document.getElementById("btn-colors");
+  function toggleColors() {
+    var on = document.body.classList.toggle("colors");
+    btnColors.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  btnColors.addEventListener("click", toggleColors);
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "1" || e.code === "Digit1" || e.code === "Numpad1")) {
+      e.preventDefault();
+      toggleColors();
+    }
+  });
+  document.getElementById("btn-reset").addEventListener("click", layout);
+  document.getElementById("btn-group").addEventListener("click", group);
+  document.getElementById("btn-frames").addEventListener("click", toggleFrames);
+
+  var lastW = 0;
+  window.addEventListener("resize", function () {
+    var w = board.clientWidth;
+    if (w === lastW) return;
+    lastW = w;
+    if (framesOn) { group(); return; }
+    tiles.forEach(function (el) {
+      var c = clamp(el, el._x, el._y);
+      place(el, c[0], c[1]);
+    });
+  });
+  layout();
+  lastW = board.clientWidth;
+})();
+</script>
+</body>
+</html>
