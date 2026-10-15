@@ -129,6 +129,7 @@
   .board.locked .tile { cursor: not-allowed; }
   .tile.fixed { cursor: default; border-color: var(--muted); }
   .tile.fixed::after { content: ""; position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .tile.lit.off { outline: 1.5px dashed #14161a; outline-offset: -4px; }
   .tile.fixed.lit::after { background: #14161a; }
   .board.anim .tile { transition: transform .45s cubic-bezier(.2,.8,.2,1), background-color .25s, border-color .25s, color .25s; }
 
@@ -898,6 +899,19 @@ if (typeof module !== "undefined") module.exports = MatTex;
     });
   });
 
+  /* Une teinte par catégorie, une nuance par groupe (de la plus claire à la plus foncée). */
+  var HUES = { mineral: [209, 52], organique: [145, 42], composite: [37, 62], artificiel: [9, 72] };
+  var LIGHT = { 2: [76, 58], 3: [80, 67, 54], 4: [82, 70, 60, 50] };
+  (function () {
+    var per = {};
+    GROUPS.forEach(function (g) { (per[g.cat] = per[g.cat] || []).push(g); });
+    Object.keys(per).forEach(function (cat) {
+      var arr = per[cat], ls = LIGHT[arr.length] || [70];
+      arr.forEach(function (g, i) { g.shade = "hsl(" + HUES[cat][0] + "," + HUES[cat][1] + "%," + ls[i] + "%)"; });
+    });
+  })();
+  var catLit = {};   /* catégories déjà colorées (acquis jusqu'à « Recommencer ») */
+
   var SEEDS = { "Métaux": "Cuivre", "Roches": "Granit", "Minéraux, sols et eau": "Sable", "Végétales": "Bois",
     "Animales": "Laine", "Fossiles": "Charbon", "Construction": "Béton", "Céramiques": "Céramique",
     "Papier, carton, cuir": "Carton", "Composites techniques": "Fibre de carbone", "Polymères": "PVC", "Verre": "Verre" };
@@ -1066,7 +1080,7 @@ if (typeof module !== "undefined") module.exports = MatTex;
     L.frames.forEach(function (f) {
       var d = document.createElement("div");
       d.className = "frame";
-      d.style.cssText = "left:" + f.x + "px;top:" + f.y + "px;width:" + f.w + "px;height:" + f.h + "px;--c:var(--" + f.cat + ")";
+      d.style.cssText = "left:" + f.x + "px;top:" + f.y + "px;width:" + f.w + "px;height:" + f.h + "px;--c:" + GROUPS[f.g].shade;
       board.insertBefore(d, first); overlay.push(d);
       f.el = d;
     });
@@ -1133,14 +1147,24 @@ if (typeof module !== "undefined") module.exports = MatTex;
     place(el, q.x, q.y, 0);
   }
 
-  /* Couleurs : un groupe s'allume quand 70 % de ses matières sont dans le bon cadre. */
+  /* Couleurs : quand 70 % des vignettes d'une catégorie (hors vignettes de départ) sont dans le bon cadre,
+     TOUTES les vignettes de cette catégorie se colorent, même mal placées (liseré pointillé). Acquis ensuite. */
   function evaluate() {
-    GROUPS.forEach(function (g, gi) {
-      var n = g.items.length, need = Math.ceil(THRESH * n - 1e-9), ok = 0;
-      tiles.forEach(function (t) { if (t._g === gi && isCorrect(t)) ok++; });
-      var lit = ok >= need;
-      L.frames[gi].el.classList.toggle("lit", lit);
-      tiles.forEach(function (t) { if (t._g === gi) t.classList.toggle("lit", lit && isCorrect(t)); });
+    var tot = {}, ok = {};
+    tiles.forEach(function (t) {
+      if (t._lock) return;
+      var c = GROUPS[t._g].cat;
+      tot[c] = (tot[c] || 0) + 1;
+      if (isCorrect(t)) ok[c] = (ok[c] || 0) + 1;
+    });
+    Object.keys(tot).forEach(function (c) {
+      if (!catLit[c] && (ok[c] || 0) >= Math.ceil(THRESH * tot[c] - 1e-9)) catLit[c] = true;
+    });
+    L.frames.forEach(function (f) { f.el.classList.toggle("lit", !!catLit[GROUPS[f.g].cat]); });
+    tiles.forEach(function (t) {
+      var lit = !!catLit[GROUPS[t._g].cat];
+      t.classList.toggle("lit", lit);
+      t.classList.toggle("off", lit && !isCorrect(t));
     });
   }
   function countCorrect() {
@@ -1218,7 +1242,8 @@ if (typeof module !== "undefined") module.exports = MatTex;
     elTimer.textContent = fmt(DURATION);
     elTimer.classList.remove("low");
     board.classList.add("locked");
-    tiles.forEach(function (t) { t.classList.remove("lit"); });
+    catLit = {};
+    tiles.forEach(function (t) { t.classList.remove("lit"); t.classList.remove("off"); });
     build();
     tiles.forEach(function (t) {
       var p = pilePos();
@@ -1251,7 +1276,7 @@ if (typeof module !== "undefined") module.exports = MatTex;
     el.textContent = name;
     el._g = groupOf[name];
     el._f = -1; el._slot = -1;
-    el.style.setProperty("--c", "var(--" + catOf[name] + ")");
+    el.style.setProperty("--c", GROUPS[groupOf[name]].shade);
     board.appendChild(el);
     tiles.push(el);
     byName[name] = el;
