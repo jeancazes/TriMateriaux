@@ -3,6 +3,7 @@ name: Mise en ligne FTP
 on:
   push:
     branches: [main]
+  workflow_dispatch:   # bouton « Run workflow » dans l'onglet Actions
 
 concurrency:
   group: deploy-ftp
